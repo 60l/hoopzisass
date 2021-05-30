@@ -1,0 +1,154 @@
+local ws = game:GetService("Workspace")
+local uis = game:GetService("UserInputService")
+local rs = game:GetService("ReplicatedStorage")
+local rss = game:GetService("RunService")
+local cam = ws.CurrentCamera
+local rem = rs:WaitForChild("shootingEvent")
+local plr = game:GetService("Players").LocalPlayer
+local chr
+local itm = {}
+local mt = getrawmetatable(game)
+local oldNamecall = mt.__namecall
+local oldIndex = mt.__newindex
+if setreadonly then setreadonly(mt, false) else make_writeable(mt, true) end
+--
+local protected_properties = {
+	["Health"] = 0,
+	["WalkSpeed"] = 16,
+	["JumpPower"] = 50
+}
+--
+mt.__namecall = newcclosure(function(self, ...)
+	local method = getnamecallmethod()
+	local args = {...}
+	if not checkcaller() then
+		if method == "FireServer" then
+			if self.Name == "sbEvent" then
+				if args[1] == "Speeding" then
+					return
+				end
+			end
+		elseif method == "BreakJoints" then
+			return
+		end
+	end
+	return oldNamecall(self, unpack(args))
+end)
+--
+mt.__newindex = newcclosure(function(self, prop, val)
+	if self == game:GetService("Players").LocalPlayer.Character:WaitForChild("Humanoid") and protected_properties[prop] ~= nil and val == protected_properties[prop] then
+		return
+	end
+	return oldIndex(self,prop,val)
+end)
+--
+function getmatch()
+	local match = nil
+	for i,v in pairs(ws.Courts:GetChildren()) do
+		if v:FindFirstChild("_Players") then
+			local players = v["_Players"]
+			if tostring(players["B1_Player"].Value) == plr.Name then
+				match = v
+			elseif tostring(players["R1_Player"].Value) == plr.Name then
+				match = v
+			end
+		end
+	end
+	if match then	
+		return match
+	end
+end
+--
+function getpos(match)
+	local hoop = match["Basketball Hoop"].hoop
+	local startPos = plr.Character.HumanoidRootPart.Position
+	local distance = (startPos-hoop.Position).magnitude
+	local toadd = 0
+	local pow = 0
+	if distance >= 50 then
+		toadd = (distance-50)
+	else
+		toadd = 0
+		if distance > 45 then
+			pow = -5
+		elseif distance > 40 then
+			pow = -10
+		elseif distance > 35 then
+			pow = -15
+		elseif distance > 30 then
+			pow = -20
+		elseif distance > 25 then
+			pow = -25
+		elseif distance > 20 then
+			pow = -30
+		elseif distance > 15 then
+			pow = -35
+		elseif distance > 10 then
+			pow = -40
+		elseif distance > 5 then
+			pow = -45
+		end
+	end
+	if toadd >= 10 then
+		pow = 5
+	elseif toadd >= 12.5 then
+		pow = 10
+	end
+	local endPos = hoop.Position+Vector3.new(0,hoop.Size.Y/2+2.5+(toadd*3),0)
+	local ray = Ray.new(startPos, (endPos-startPos).Unit * 1000)
+	local hit, pos = ws:FindPartOnRayWithIgnoreList(ray, itm)
+	return hit, pos, pow
+end
+--
+function getargs()
+	local chr = plr.Character
+	local tool = chr:FindFirstChildOfClass("Tool")
+	if tool and chr and chr:FindFirstChild("Humanoid") then
+		itm = {}
+		for ind, val in pairs(chr:GetChildren()) do
+			table.insert(itm, val)
+		end
+		local match = getmatch()
+		if match:FindFirstChild("CanDefine") then
+			table.insert(itm,match.CanDefine)
+		end
+		if match:FindFirstChild("NotDefine") then	
+			table.insert(itm,match.NotDefine)
+		end
+		local pos
+		local hit
+		local pow
+		if match then
+			hit, pos, pow = getpos(match)
+		end
+		if pos then
+			local power = 75
+			if pow then power = power+pow end
+			return {tool, (pos - chr.HumanoidRootPart.Position).unit, power}
+		end
+	end
+end
+--
+function shoot()
+	if plr.Character then
+		chr = plr.Character
+		if chr:FindFirstChildOfClass("Tool") then
+			local args = getargs()
+			rem:FireServer(args[1],args[2],args[3])
+		end
+	end
+end
+--
+uis.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Keyboard then
+		if input.KeyCode == Enum.KeyCode.Q then
+			shoot()
+		end
+	end
+end)
+--
+while wait(0.5) do
+	pcall(function()
+		game:GetService("Players").LocalPlayer.Character:WaitForChild("Humanoid").WalkSpeed = 18
+	end)
+end
